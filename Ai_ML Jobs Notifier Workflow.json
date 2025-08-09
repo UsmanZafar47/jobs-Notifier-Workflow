@@ -1,0 +1,355 @@
+{
+  "name": "Ai?ML Jobs Notifier Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  const data = item.json;\n  const original = data.originalJson || {};\n\n  return {\n    json: {\n      id: original.id,\n      url: original.url,\n      title: original.title,\n      company_name: original.company_name,\n      company_logo: original.company_logo,\n      category: original.category,\n      tags: original.tags,\n      job_type: original.job_type,\n      publication_date: original.publication_date,\n      candidate_required_location: original.candidate_required_location,\n      salary: original.salary,\n      summary: data.summary_text || \"\"  // from Hugging Face summary\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        144
+      ],
+      "id": "521857b6-fc42-4140-9ae3-63cb52064b46",
+      "name": "Flatten Response"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api-inference.huggingface.co/models/sshleifer/distilbart-cnn-12-6",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer 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"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-use-cache",
+              "value": "false"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "inputs",
+              "value": "={\n  \"inputs\": \"{{$json.cleanDescription}}\"\n}\n"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1056,
+        288
+      ],
+      "id": "6b6da544-96f9-4b79-a474-4b0d35c65649",
+      "name": "Clean Description"
+    },
+    {
+      "parameters": {
+        "fromEmail": "turkey381psn@gmail.com",
+        "toEmail": "musmanzafar381@gmail.com",
+        "subject": "=New Job Opportunity: {{$json[\"title\"]}} at {{$json[\"company_name\"]}}",
+        "html": "=<h2>New Job Opportunity</h2>\n<p><strong>Title:</strong> {{$json[\"title\"]}}</p>\n<p><strong>Company:</strong> {{$json[\"company_name\"]}}</p>\n<p><strong>Location:</strong> {{$json[\"candidate_required_location\"]}}</p>\n<p><strong>Type:</strong> {{$json[\"job_type\"]}}</p>\n<p><strong>Salary:</strong> {{$json[\"salary\"] || \"Not specified\"}}</p>\n<p><strong>Summary:</strong><br>{{$json[\"summary\"]}}</p>\n<p>Apply here: <a href=\"{{$json[\"url\"]}}\">Job Link</a></p>\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        2320,
+        32
+      ],
+      "id": "37de7cbb-f808-4989-b5fa-6f1e4d0c17bf",
+      "name": "Send email",
+      "webhookId": "62bd0d15-e538-4205-9e2e-c3a9b81cba20",
+      "credentials": {
+        "smtp": {
+          "id": "GDtbE5z6QjWNCeLS",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        144,
+        144
+      ],
+      "id": "c4cf6b7c-b241-49dc-a8dc-5ce08ed72278",
+      "name": "Schedule Trigger - Daily Poll"
+    },
+    {
+      "parameters": {
+        "url": "https://remotive.com/api/remote-jobs",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "category",
+              "value": "Software-dev"
+            },
+            {
+              "name": "limit",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        352,
+        144
+      ],
+      "id": "b47537bd-5e76-49d0-b424-f258ab2547e8",
+      "name": "Fetch Remote Jobs API"
+    },
+    {
+      "parameters": {
+        "jsCode": "const keywords = [\"AI\", \"Machine Learning\", \"Data Scientist\", \"NLP\"];\nreturn items[0].json.jobs\n  .filter(job => keywords.some(k => job.title.toLowerCase().includes(k.toLowerCase())))\n  .map(job => {\n    // Clean HTML description to plain text:\n    const html = job.description || \"\";\n    const clean = html\n      .replace(/<[^>]*>/g, ' ')\n      .replace(/\\s+/g, ' ')\n      .trim();\n\n    return {\n      json: {\n        cleanDescription: clean,  // plain job description text\n        originalJson: job          // keep all original job data nested here\n      }\n    };\n  });\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        144
+      ],
+      "id": "c985c00e-b1dd-4286-ae42-b95a84db9169",
+      "name": "Job Data (Filtering and Cleaning)"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1472,
+        144
+      ],
+      "id": "12519cf8-4a01-4c03-891d-31b600f37f41",
+      "name": "Merge Job Data And Summary"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "24aef5bb-20dd-8036-bd3a-e15b919e4b84",
+          "mode": "list",
+          "cachedResultName": "Job Applications",
+          "cachedResultUrl": "https://www.notion.so/24aef5bb20dd8036bd3ae15b919e4b84"
+        },
+        "title": "=",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "title|title",
+              "title": "={{ $json.title }}"
+            },
+            {
+              "key": "category|select",
+              "selectValue": "={{ $json.category }}"
+            },
+            {
+              "key": "candidate_required_location|rich_text",
+              "richText": true,
+              "text": {
+                "text": [
+                  {
+                    "text": "={{ $json.candidate_required_location }}",
+                    "annotationUi": {}
+                  }
+                ]
+              }
+            },
+            {
+              "key": "company_name|rich_text",
+              "richText": true,
+              "text": {
+                "text": [
+                  {
+                    "text": "={{ $json.company_name }}",
+                    "annotationUi": {}
+                  }
+                ]
+              }
+            },
+            {
+              "key": "job_type|select",
+              "selectValue": "={{ $json.job_type }}"
+            },
+            {
+              "key": "publication_date|date",
+              "date": "={{ $json.publication_date }}"
+            },
+            {
+              "key": "salary|rich_text",
+              "richText": true,
+              "text": {
+                "text": [
+                  {
+                    "text": "={{ $json.salary }}",
+                    "annotationUi": {}
+                  }
+                ]
+              }
+            },
+            {
+              "key": "summary|rich_text",
+              "richText": true,
+              "text": {
+                "text": [
+                  {
+                    "text": "={{ $json.summary }}",
+                    "annotationUi": {}
+                  }
+                ]
+              }
+            },
+            {
+              "key": "tags|multi_select",
+              "multiSelectValue": "={{ $json.tags }}"
+            },
+            {
+              "key": "url|url",
+              "urlValue": "={{ $json.url }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        2320,
+        288
+      ],
+      "id": "8f95ac7a-fb6d-4dff-a049-abd55d72b263",
+      "name": "Add jobs to Notion Database",
+      "credentials": {
+        "notionApi": {
+          "id": "h30x2QWTbDIRuIml",
+          "name": "Notion account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Flatten Response": {
+      "main": [
+        [
+          {
+            "node": "Send email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Add jobs to Notion Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean Description": {
+      "main": [
+        [
+          {
+            "node": "Merge Job Data And Summary",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger - Daily Poll": {
+      "main": [
+        [
+          {
+            "node": "Fetch Remote Jobs API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Remote Jobs API": {
+      "main": [
+        [
+          {
+            "node": "Job Data (Filtering and Cleaning)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job Data (Filtering and Cleaning)": {
+      "main": [
+        [
+          {
+            "node": "Merge Job Data And Summary",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Clean Description",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Job Data And Summary": {
+      "main": [
+        [
+          {
+            "node": "Flatten Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "0be86364-2e08-42a7-bd24-1fb1e061aeac",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1ff14bf9d022fed5a01fe9a0d5f347edea43c84291dec7bfcb27ce61d4e24d39"
+  },
+  "id": "M5KaKQxkUCXqBf5u",
+  "tags": []
+}

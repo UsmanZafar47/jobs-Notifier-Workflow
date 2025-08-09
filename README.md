@@ -53,9 +53,6 @@ Download the workflow.json file from this repository.
 
 ---
 
-## License
-
-MIT License
 
 ---
 
